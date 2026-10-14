@@ -381,7 +381,7 @@ const SPEAKER_SUGGEST=[
 
 /* ---------- 상태 ---------- */
 const S={extracted:false,confirmed:false,findingFilter:"all",tab:"overview",work:null,
-  edit:{session:"2026년 제9차",datetime:"2026. 11. 20.(금) 14:00 ~ 14:25 (25분)",location:"본사 대회의실"}};
+  edit:{session:"2026년 제9차",datetime:"2026. 11. 20.(금) 14:00 ~ 14:25 (25분)",location:"본사 대회의실",present:"위원장 한도윤, 서지후 위원, 남궁별 위원, 오세린 위원(14:16 이석), 윤태경 위원, 배하람 위원, 간사 차민서",observer:"",absent:"진유나 위원"}};
 
 /* ---------- 유틸 ---------- */
 const E=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
@@ -628,7 +628,10 @@ function panelReview(){
   eg.innerHTML=`
     <div class="fld"><label for="f-session">차수</label><input id="f-session" value="${esc(S.edit.session)}"></div>
     <div class="fld"><label for="f-datetime">일시</label><input id="f-datetime" value="${esc(S.edit.datetime)}"></div>
-    <div class="fld"><label for="f-location">장소</label><input id="f-location" value="${esc(S.edit.location)}"></div>`;
+    <div class="fld"><label for="f-location">장소</label><input id="f-location" value="${esc(S.edit.location)}"></div>
+    <div class="fld" style="grid-column:1/-1"><label for="f-present">출석자 성명</label><input id="f-present" value="${esc(S.edit.present)}"></div>
+    <div class="fld"><label for="f-observer">배석자 성명</label><input id="f-observer" value="${esc(S.edit.observer)}" placeholder="없으면 비움"></div>
+    <div class="fld"><label for="f-absent">불참자 성명</label><input id="f-absent" value="${esc(S.edit.absent)}" placeholder="없으면 비움"></div>`;
   p.appendChild(eg);
 
   const h=E("h2","sec");h.textContent="안건별 발언 수정";p.appendChild(h);
@@ -647,7 +650,7 @@ function panelReview(){
   const docWrap=E("div");docWrap.id="docWrap";p.appendChild(docWrap);
 
   setTimeout(()=>{
-    ["session","datetime","location"].forEach(k=>{
+    ["session","datetime","location","present","observer","absent"].forEach(k=>{
       const el=document.getElementById("f-"+k);
       if(el)el.oninput=()=>{S.edit[k]=el.value;markDirty();renderDoc();};
     });
@@ -690,7 +693,9 @@ function renderDoc(){
       <tr><th>차수</th><td>${esc(S.edit.session)}</td><th>장소</th><td>${esc(S.edit.location)}</td></tr>
       <tr><th>일시</th><td colspan="3">${esc(S.edit.datetime)}</td></tr>
       <tr><th>위원장</th><td>한도윤</td><th>간사</th><td>차민서</td></tr>
-      <tr><th>출석</th><td colspan="3">${esc(OVERVIEW.presentText)} / 불참 ${esc(OVERVIEW.absentText)}</td></tr>
+      <tr><th>출석</th><td colspan="3">${esc(S.edit.present)||"-"}</td></tr>
+      <tr><th>배석</th><td colspan="3">${esc(S.edit.observer)||"없음"}</td></tr>
+      <tr><th>불참</th><td colspan="3">${esc(S.edit.absent)||"없음"}</td></tr>
       <tr><th>정족수</th><td colspan="3">${esc(OVERVIEW.quorum)}</td></tr>
     </tbody></table>
     ${agendaBlocks}
