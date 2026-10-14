@@ -211,6 +211,14 @@
   .ag-edit .fld label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:500}
   @media (max-width:560px){.discedit{grid-template-columns:1fr 1fr}.discedit textarea{grid-column:1/3}.de-del{grid-column:2/3;justify-self:end;width:34px}}
 
+
+  /* ④ 출결 로스터 */
+  #attendEditor{border:1px solid var(--line);border-radius:10px;padding:4px 14px;margin-bottom:14px;background:var(--panel)}
+  .attrow{display:grid;grid-template-columns:1fr 104px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+  .attrow:last-child{border-bottom:none}
+  .atname{font-size:13px;min-width:0}
+  .attrow select{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--ink);width:100%}
+
 </style>
 
 <header class="top">
@@ -381,7 +389,7 @@ const SPEAKER_SUGGEST=[
 
 /* ---------- 상태 ---------- */
 const S={extracted:false,confirmed:false,findingFilter:"all",tab:"overview",work:null,
-  edit:{session:"2026년 제9차",datetime:"2026. 11. 20.(금) 14:00 ~ 14:25 (25분)",location:"본사 대회의실",present:"위원장 한도윤, 서지후 위원, 남궁별 위원, 오세린 위원(14:16 이석), 윤태경 위원, 배하람 위원, 간사 차민서",observer:"",absent:"진유나 위원"}};
+  edit:{session:"2026년 제9차",datetime:"2026. 11. 20.(금) 14:00 ~ 14:25 (25분)",location:"본사 대회의실",observerExtra:""},attend:{M01:"출석",M02:"출석",M03:"출석",M04:"이석",M05:"출석",M06:"출석",M07:"불참",S01:"출석"}};
 
 /* ---------- 유틸 ---------- */
 const E=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
@@ -620,6 +628,38 @@ function onAgClick(e){
   else { W[+add.dataset.add].discussions.push({spk:"",name:"위원",type:"의견",content:"",src:[]}); }
   markDirty(); renderAgEditor(); renderDoc();
 }
+const ATTEND_OPTS=["출석","이석","배석","불참"];
+function memberLabel(m){
+  if(m.role==="위원장") return "위원장 "+m.name;
+  if(m.role==="간사") return "간사 "+m.name;
+  if(m.role==="위원") return m.name+" 위원";
+  return m.role+" "+m.name;
+}
+function attendLists(){
+  const present=[],observer=[],absent=[];
+  MEMBERS.forEach(m=>{
+    const st=S.attend[m.id]||"출석", lbl=memberLabel(m);
+    if(st==="불참") absent.push(lbl);
+    else if(st==="배석") observer.push(lbl);
+    else if(st==="이석") present.push(lbl+"(이석)");
+    else present.push(lbl);
+  });
+  const ex=(S.edit.observerExtra||"").trim();
+  if(ex) observer.push(ex);
+  return {present,observer,absent};
+}
+function renderAttend(){
+  const host=document.getElementById("attendEditor"); if(!host)return;
+  host.innerHTML=MEMBERS.map(m=>`
+    <div class="attrow">
+      <span class="atname"><b>${esc(m.name)}</b> <span class="hint">${esc(m.role)}${m.voting?"":" · 의결권 없음"}</span></span>
+      <select data-mid="${m.id}" aria-label="${esc(m.name)} 출결">${ATTEND_OPTS.map(o=>`<option ${o===(S.attend[m.id]||"출석")?"selected":""}>${o}</option>`).join("")}</select>
+    </div>`).join("");
+}
+function onAttendChange(e){
+  const t=e.target, mid=t.dataset.mid; if(!mid)return;
+  S.attend[mid]=t.value; markDirty(); renderDoc();
+}
 function panelReview(){
   const p=E("section");p.id="panel-review";p.setAttribute("role","tabpanel");p.setAttribute("aria-labelledby","tab-review");
   p.innerHTML=`<p class="lead">머리말과 <b>안건별 발언(발언자·유형·내용)</b>을 직접 수정한 뒤 <b>확정</b>하면 의사록 문서가 완성됩니다. 확정 후 내용을 고치면 다시 '초안'이 됩니다. <span class="hint">(FR-08~11 · R14)</span></p>`;
@@ -629,10 +669,11 @@ function panelReview(){
     <div class="fld"><label for="f-session">차수</label><input id="f-session" value="${esc(S.edit.session)}"></div>
     <div class="fld"><label for="f-datetime">일시</label><input id="f-datetime" value="${esc(S.edit.datetime)}"></div>
     <div class="fld"><label for="f-location">장소</label><input id="f-location" value="${esc(S.edit.location)}"></div>
-    <div class="fld" style="grid-column:1/-1"><label for="f-present">출석자 성명</label><input id="f-present" value="${esc(S.edit.present)}"></div>
-    <div class="fld"><label for="f-observer">배석자 성명</label><input id="f-observer" value="${esc(S.edit.observer)}" placeholder="없으면 비움"></div>
-    <div class="fld"><label for="f-absent">불참자 성명</label><input id="f-absent" value="${esc(S.edit.absent)}" placeholder="없으면 비움"></div>`;
+    <div class="fld" style="grid-column:1/-1"><label for="f-observerExtra">배석자 (명단 외)</label><input id="f-observerExtra" value="${esc(S.edit.observerExtra)}" placeholder="위원 명단에 없는 배석자 (예: 보험금심사팀 이수민 차장)"></div>`;
   p.appendChild(eg);
+
+  const ah=E("h2","sec");ah.textContent="출결 (위원 명단에서 선택)";p.appendChild(ah);
+  const attHost=E("div");attHost.id="attendEditor";p.appendChild(attHost);
 
   const h=E("h2","sec");h.textContent="안건별 발언 수정";p.appendChild(h);
   const agHost=E("div");agHost.id="agEditor";p.appendChild(agHost);
@@ -650,10 +691,13 @@ function panelReview(){
   const docWrap=E("div");docWrap.id="docWrap";p.appendChild(docWrap);
 
   setTimeout(()=>{
-    ["session","datetime","location","present","observer","absent"].forEach(k=>{
+    ["session","datetime","location","observerExtra"].forEach(k=>{
       const el=document.getElementById("f-"+k);
       if(el)el.oninput=()=>{S.edit[k]=el.value;markDirty();renderDoc();};
     });
+    renderAttend();
+    const attH=document.getElementById("attendEditor");
+    if(attH) attH.addEventListener("change", onAttendChange);
     renderAgEditor();
     const agHost2=document.getElementById("agEditor");
     if(agHost2){ agHost2.addEventListener("input",onAgEdit); agHost2.addEventListener("change",onAgEdit); agHost2.addEventListener("click",onAgClick); }
@@ -672,6 +716,7 @@ function panelReview(){
 }
 function renderDoc(){
   const w=document.getElementById("docWrap");if(!w)return;
+  const AL=attendLists();
   const mark=S.confirmed?"확정":"초안";
   const markColor=S.confirmed?"var(--info)":"var(--gold)";
   let agendaBlocks=(S.work||AGENDAS).map(a=>{
@@ -693,9 +738,9 @@ function renderDoc(){
       <tr><th>차수</th><td>${esc(S.edit.session)}</td><th>장소</th><td>${esc(S.edit.location)}</td></tr>
       <tr><th>일시</th><td colspan="3">${esc(S.edit.datetime)}</td></tr>
       <tr><th>위원장</th><td>한도윤</td><th>간사</th><td>차민서</td></tr>
-      <tr><th>출석</th><td colspan="3">${esc(S.edit.present)||"-"}</td></tr>
-      <tr><th>배석</th><td colspan="3">${esc(S.edit.observer)||"없음"}</td></tr>
-      <tr><th>불참</th><td colspan="3">${esc(S.edit.absent)||"없음"}</td></tr>
+      <tr><th>출석</th><td colspan="3">${AL.present.length?esc(AL.present.join(", ")):"없음"}</td></tr>
+      <tr><th>배석</th><td colspan="3">${AL.observer.length?esc(AL.observer.join(", ")):"없음"}</td></tr>
+      <tr><th>불참</th><td colspan="3">${AL.absent.length?esc(AL.absent.join(", ")):"없음"}</td></tr>
       <tr><th>정족수</th><td colspan="3">${esc(OVERVIEW.quorum)}</td></tr>
     </tbody></table>
     ${agendaBlocks}
