@@ -199,6 +199,23 @@
   footer{border-top:1px solid var(--line);margin-top:10px;padding:18px 0 4px;color:var(--muted);font-size:11.5px;text-align:center;line-height:1.7}
   code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--panel-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  /* ④ 발언자별 수정 에디터 */
+  .ag-edit{border:1px solid var(--line);border-radius:10px;padding:13px 14px;margin-bottom:12px;background:var(--panel)}
+  .ag-edit .ag-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:700;font-size:14px;margin-bottom:8px}
+  .ag-edit .ag-no{font-family:var(--serif);color:var(--accent-ink)}
+  .de-label{font-size:11.5px;letter-spacing:.04em;color:var(--muted);font-weight:500;margin:10px 0 6px}
+  .de-list{display:flex;flex-direction:column;gap:8px}
+  .discedit{display:grid;grid-template-columns:112px 92px 1fr 30px;gap:7px;align-items:start}
+  .discedit input,.discedit select,.discedit textarea,.ag-edit .fld textarea{font:inherit;font-size:12.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--ink);width:100%}
+  .discedit textarea,.ag-edit .fld textarea{resize:vertical;min-height:40px;line-height:1.5}
+  .de-del{border:1px solid var(--line-strong);background:var(--panel);color:var(--warn);border-radius:7px;cursor:pointer;font-size:12px;padding:0;min-height:34px}
+  .de-del:hover{background:var(--warn-soft);border-color:var(--warn)}
+  .de-add{margin-top:9px;font-size:12px;padding:5px 11px}
+  .ag-edit .fld{display:flex;flex-direction:column;gap:4px}
+  .ag-edit .fld label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  @media (max-width:560px){.discedit{grid-template-columns:1fr 1fr}.discedit textarea{grid-column:1/3}.de-del{grid-column:2/3;justify-self:end;width:34px}}
+
 </style>
 </head>
 <body>
@@ -369,7 +386,7 @@ const SPEAKER_SUGGEST=[
 ];
 
 /* ---------- 상태 ---------- */
-const S={extracted:false,confirmed:false,findingFilter:"all",tab:"overview",
+const S={extracted:false,confirmed:false,findingFilter:"all",tab:"overview",work:null,
   edit:{session:"2026년 제9차",datetime:"2026. 11. 20.(금) 14:00 ~ 14:25 (25분)",location:"본사 대회의실"}};
 
 /* ---------- 유틸 ---------- */
@@ -563,9 +580,55 @@ function renderFindings(){
 }
 
 /* ---------- 패널: ④ 검토·출력 ---------- */
+/* ---------- ④ 발언자별 수정 에디터 ---------- */
+function ensureWork(){ if(!S.work) S.work=JSON.parse(JSON.stringify(AGENDAS)); return S.work; }
+function markDirty(){
+  if(!S.confirmed) return;
+  S.confirmed=false;
+  const cb=document.getElementById("confirmBtn");
+  if(cb){cb.textContent="✓ 담당자 확정 (R14)";cb.classList.add("primary");}
+  const n=document.getElementById("confirmedNote"); if(n)n.style.display="none";
+  const cp=document.getElementById("copyBtn"); if(cp)cp.disabled=true;
+}
+const DTYPES=["질의","답변","의견","요청"];
+function renderAgEditor(){
+  const host=document.getElementById("agEditor"); if(!host)return;
+  const W=ensureWork();
+  host.innerHTML=W.map((a,ai)=>{
+    const rows=a.discussions.map((d,di)=>`
+      <div class="discedit">
+        <input data-ag="${ai}" data-di="${di}" data-f="name" value="${esc(d.name)}" aria-label="발언자">
+        <select data-ag="${ai}" data-di="${di}" data-f="type" aria-label="유형">${DTYPES.map(t=>`<option ${t===d.type?"selected":""}>${t}</option>`).join("")}</select>
+        <textarea data-ag="${ai}" data-di="${di}" data-f="content" aria-label="발언 내용">${esc(d.content)}</textarea>
+        <button class="de-del" data-del data-ag="${ai}" data-di="${di}" title="삭제" aria-label="삭제">✕</button>
+      </div>`).join("");
+    return `<div class="ag-edit">
+      <div class="ag-h"><span class="ag-no">제${a.no}호</span><span class="kind ${a.type==='의결'?'vote':''}">${esc(a.type)}</span><span class="ag-t">${esc(a.title)}</span></div>
+      <div class="fld"><label>요지</label><textarea data-ag="${ai}" data-f="summary">${esc(a.summary)}</textarea></div>
+      <div class="de-label">주요 발언 <span class="hint">(발언자·유형·내용 직접 수정)</span></div>
+      <div class="de-list">${rows||'<div class="hint">발언 없음</div>'}</div>
+      <button class="btn de-add" data-add="${ai}">＋ 발언 추가</button>
+    </div>`;
+  }).join("");
+}
+function onAgEdit(e){
+  const t=e.target; const ai=t.dataset.ag; if(ai==null)return;
+  const W=ensureWork();
+  if(t.dataset.f==="summary"){ W[ai].summary=t.value; }
+  else { const di=t.dataset.di; if(di==null)return; W[ai].discussions[di][t.dataset.f]=t.value; }
+  markDirty(); renderDoc();
+}
+function onAgClick(e){
+  const del=e.target.closest("[data-del]"), add=e.target.closest("[data-add]");
+  if(!del&&!add)return;
+  const W=ensureWork();
+  if(del){ W[+del.dataset.ag].discussions.splice(+del.dataset.di,1); }
+  else { W[+add.dataset.add].discussions.push({spk:"",name:"위원",type:"의견",content:"",src:[]}); }
+  markDirty(); renderAgEditor(); renderDoc();
+}
 function panelReview(){
   const p=E("section");p.id="panel-review";p.setAttribute("role","tabpanel");p.setAttribute("aria-labelledby","tab-review");
-  p.innerHTML=`<p class="lead">머리말 항목을 확인·수정하고 <b>확정</b>하면 의사록 양식(.docx)과 같은 구조의 문서가 완성됩니다. 정답 예시와 동일한 형식입니다. <span class="hint">(FR-08~11 · R14)</span></p>`;
+  p.innerHTML=`<p class="lead">머리말과 <b>안건별 발언(발언자·유형·내용)</b>을 직접 수정한 뒤 <b>확정</b>하면 의사록 문서가 완성됩니다. 확정 후 내용을 고치면 다시 '초안'이 됩니다. <span class="hint">(FR-08~11 · R14)</span></p>`;
 
   const eg=E("div","editgrid");
   eg.innerHTML=`
@@ -573,6 +636,9 @@ function panelReview(){
     <div class="fld"><label for="f-datetime">일시</label><input id="f-datetime" value="${esc(S.edit.datetime)}"></div>
     <div class="fld"><label for="f-location">장소</label><input id="f-location" value="${esc(S.edit.location)}"></div>`;
   p.appendChild(eg);
+
+  const h=E("h2","sec");h.textContent="안건별 발언 수정";p.appendChild(h);
+  const agHost=E("div");agHost.id="agEditor";p.appendChild(agHost);
 
   const bar=E("div","toolbar");
   bar.innerHTML=`<button class="btn primary" id="confirmBtn">✓ 담당자 확정 (R14)</button>
@@ -589,8 +655,11 @@ function panelReview(){
   setTimeout(()=>{
     ["session","datetime","location"].forEach(k=>{
       const el=document.getElementById("f-"+k);
-      if(el)el.oninput=()=>{S.edit[k]=el.value;renderDoc();};
+      if(el)el.oninput=()=>{S.edit[k]=el.value;markDirty();renderDoc();};
     });
+    renderAgEditor();
+    const agHost2=document.getElementById("agEditor");
+    if(agHost2){ agHost2.addEventListener("input",onAgEdit); agHost2.addEventListener("change",onAgEdit); agHost2.addEventListener("click",onAgClick); }
     const cb=document.getElementById("confirmBtn");
     if(cb)cb.onclick=()=>{S.confirmed=!S.confirmed;
       cb.textContent=S.confirmed?"↺ 확정 취소":"✓ 담당자 확정 (R14)";
@@ -608,7 +677,7 @@ function renderDoc(){
   const w=document.getElementById("docWrap");if(!w)return;
   const mark=S.confirmed?"확정":"초안";
   const markColor=S.confirmed?"var(--info)":"var(--gold)";
-  let agendaBlocks=AGENDAS.map(a=>{
+  let agendaBlocks=(S.work||AGENDAS).map(a=>{
     const disc=a.discussions.map(d=>`<li><b>${esc(d.name)} (${esc(d.type)})</b> ${esc(d.content)}</li>`).join("");
     let result=a.decisionText;
     if(a.detail)result+="<br>"+esc(a.detail);
