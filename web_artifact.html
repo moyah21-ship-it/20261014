@@ -717,6 +717,10 @@ function panelReview(){
 function renderDoc(){
   const w=document.getElementById("docWrap");if(!w)return;
   const AL=attendLists();
+  const _hs=!S.confirmed;
+  const AP=_hs?AL.present.filter(x=>!x.startsWith("간사 ")):AL.present;
+  const AO=_hs?AL.observer.filter(x=>!x.startsWith("간사 ")):AL.observer;
+  const AX=_hs?AL.absent.filter(x=>!x.startsWith("간사 ")):AL.absent;
   const mark=S.confirmed?"확정":"초안";
   const markColor=S.confirmed?"var(--info)":"var(--gold)";
   let agendaBlocks=(S.work||AGENDAS).map(a=>{
@@ -737,18 +741,18 @@ function renderDoc(){
     <table class="dmeta"><tbody>
       <tr><th>차수</th><td>${esc(S.edit.session)}</td><th>장소</th><td>${esc(S.edit.location)}</td></tr>
       <tr><th>일시</th><td colspan="3">${esc(S.edit.datetime)}</td></tr>
-      <tr><th>위원장</th><td>한도윤</td><th>간사</th><td>차민서</td></tr>
-      <tr><th>출석</th><td colspan="3">${AL.present.length?esc(AL.present.join(", ")):"없음"}</td></tr>
-      <tr><th>배석</th><td colspan="3">${AL.observer.length?esc(AL.observer.join(", ")):"없음"}</td></tr>
-      <tr><th>불참</th><td colspan="3">${AL.absent.length?esc(AL.absent.join(", ")):"없음"}</td></tr>
-      <tr><th>정족수</th><td colspan="3">${esc(OVERVIEW.quorum)}</td></tr>
+      <tr><th>위원장</th><td ${S.confirmed?"":'colspan="3"'}>한도윤</td>${S.confirmed?`<th>간사</th><td>차민서</td>`:""}</tr>
+      <tr><th>출석</th><td colspan="3">${AP.length?esc(AP.join(", ")):"없음"}</td></tr>
+      <tr><th>배석</th><td colspan="3">${AO.length?esc(AO.join(", ")):"없음"}</td></tr>
+      <tr><th>불참</th><td colspan="3">${AX.length?esc(AX.join(", ")):"없음"}</td></tr>
+      ${S.confirmed?`<tr><th>정족수</th><td colspan="3">${esc(OVERVIEW.quorum)}</td></tr>`:""}
     </tbody></table>
     ${agendaBlocks}
     <h4>후속조치 이행 관리</h4>
     <table class="dtbl"><thead><tr><th>No</th><th>안건</th><th>조치 사항</th><th>담당</th><th>기한</th><th>비고</th></tr></thead><tbody>${fuRows}</tbody></table>
     <div class="sign">위 회의 내용이 사실과 다름없음을 확인함.<br><br>2026년 11월 20일<br>
       <span class="role">위원장 &nbsp; 한&nbsp;도&nbsp;윤 (인)</span>
-      <span class="role">간사 &nbsp; 차&nbsp;민&nbsp;서 (인)</span></div>
+      ${S.confirmed?`<span class="role">간사 &nbsp; 차&nbsp;민&nbsp;서 (인)</span>`:""}</div>
   </div>`;
 }
 function copyDoc(btn){
